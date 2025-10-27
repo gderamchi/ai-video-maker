@@ -1,0 +1,20 @@
+[build]
+  # No build command needed for static site
+  publish = "."
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[functions]
+  # Configure function settings
+  node_bundler = "esbuild"
+  
+[functions."generate-video"]
+  # Increase timeout for video generation (max 10 seconds for free tier)
+  timeout = 10
