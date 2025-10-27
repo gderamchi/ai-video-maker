@@ -178,9 +178,19 @@ ai-video-maker-1/
 - Verify the API key starts with `sk-`
 - Verify the API key is valid and has proper permissions
 
-### Function Timeout
-- If video generation takes too long, increase timeout in `netlify.toml`
-- Note: Free tier has a 10-second limit
+### Function Timeout / 500 Errors
+**Important**: Netlify free tier has a **26-second maximum timeout** for serverless functions. Video generation with Blackbox API typically takes 30-60 seconds, which exceeds this limit.
+
+**Solutions:**
+1. **Upgrade to Netlify Pro** ($19/month) - Allows up to 26 seconds timeout (still may not be enough)
+2. **Use a different deployment platform**:
+   - Vercel (60-second timeout on free tier)
+   - Railway (no timeout limits)
+   - AWS Lambda (15-minute timeout)
+3. **Try veo-2 model** (may be faster than veo-3-fast)
+4. **Implement async/polling** (complex, requires database)
+
+**Current Status**: The code is correct, but Netlify's timeout limitation prevents it from working on the free tier.
 
 ### Photo Upload Issues
 - Ensure photos are in supported formats (JPG, PNG, GIF)

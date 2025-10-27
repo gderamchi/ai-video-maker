@@ -188,8 +188,12 @@ async function generateVideo() {
             data: photo.dataUrl
         }));
         
-        // Call Netlify function
-        const response = await fetch('/.netlify/functions/generate-video', {
+        // Call serverless function (works for both Netlify and Vercel)
+        const functionUrl = window.location.hostname.includes('vercel') 
+            ? '/api/generate-video' 
+            : '/.netlify/functions/generate-video';
+        
+        const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

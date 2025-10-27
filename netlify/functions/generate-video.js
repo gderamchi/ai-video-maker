@@ -86,14 +86,16 @@ exports.handler = async (event, context) => {
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: 'blackboxai/google/veo-3-fast',
+                    model: 'blackboxai/google/veo-2',
                     messages: [
                         {
                             role: 'user',
                             content: prompt
                         }
                     ]
-                })
+                }),
+                // Increase timeout for fetch
+                signal: AbortSignal.timeout(180000) // 180 seconds
             });
             
             console.log('API response status:', response.status);
