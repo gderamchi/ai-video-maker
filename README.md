@@ -141,10 +141,10 @@ ai-video-maker-1/
 ## 🛠️ Technologies Used
 
 - **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Backend**: Netlify Serverless Functions (Node.js)
+- **Backend**: Netlify Serverless Functions (Node.js 18+)
 - **AI Model**: Blackbox AI - Veo 3
 - **Hosting**: Netlify
-- **API**: Blackbox API
+- **API**: Blackbox API (native fetch, no external dependencies)
 
 ## 🔐 Security
 
@@ -161,8 +161,21 @@ ai-video-maker-1/
 
 ## 🐛 Troubleshooting
 
+### 500 Internal Server Error
+**FIXED in v1.1:** Removed node-fetch dependency, now using native fetch API
+- If you still see this error, check `BLACKBOX_API` is set in Netlify
+- Redeploy after setting environment variable
+- See TROUBLESHOOTING.md for detailed solutions
+
+### 401 Unauthorized Error
+**This is normal** if using placeholder API key
+- Get real API key from https://www.blackbox.ai/
+- Update `BLACKBOX_API` environment variable
+- Redeploy the site
+
 ### API Key Issues
 - Ensure `BLACKBOX_API` is set in Netlify environment variables
+- Verify the API key starts with `sk-`
 - Verify the API key is valid and has proper permissions
 
 ### Function Timeout
@@ -172,6 +185,8 @@ ai-video-maker-1/
 ### Photo Upload Issues
 - Ensure photos are in supported formats (JPG, PNG, GIF)
 - Check file sizes aren't too large (recommended < 5MB each)
+
+**For detailed troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)**
 
 ## 📄 License
 

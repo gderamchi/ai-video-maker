@@ -1,5 +1,3 @@
-const fetch = require('node-fetch');
-
 exports.handler = async (event, context) => {
     // Only allow POST requests
     if (event.httpMethod !== 'POST') {
@@ -53,28 +51,48 @@ exports.handler = async (event, context) => {
         };
 
         // Call Blackbox API
-        const response = await fetch('https://api.blackbox.ai/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(apiPayload)
-        });
+        let response;
+        let result;
+        
+        try {
+            response = await fetch('https://api.blackbox.ai/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(apiPayload)
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Blackbox API error:', errorText);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Blackbox API error:', errorText);
+                return {
+                    statusCode: response.status,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        error: `API request failed: ${response.statusText}`,
+                        details: errorText
+                    })
+                };
+            }
+
+            result = await response.json();
+        } catch (fetchError) {
+            console.error('Fetch error:', fetchError);
             return {
-                statusCode: response.status,
+                statusCode: 500,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ 
-                    error: `API request failed: ${response.statusText}`,
-                    details: errorText
+                    error: 'Failed to connect to Blackbox API',
+                    message: fetchError.message
                 })
             };
         }
-
-        const result = await response.json();
 
         // Extract video URL or relevant data from the response
         // The exact structure depends on the Blackbox API response format
@@ -128,11 +146,16 @@ exports.handler = async (event, context) => {
 
     } catch (error) {
         console.error('Error in generate-video function:', error);
+        console.error('Error stack:', error.stack);
         return {
             statusCode: 500,
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ 
                 error: 'Internal server error',
-                message: error.message 
+                message: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
             })
         };
     }
