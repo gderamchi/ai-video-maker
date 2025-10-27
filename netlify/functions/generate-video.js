@@ -94,15 +94,24 @@ exports.handler = async (event, context) => {
                 const errorText = await response.text();
                 console.error('Blackbox API error status:', response.status);
                 console.error('Blackbox API error:', errorText);
+                
+                let userMessage = `API request failed: ${response.statusText}`;
+                
+                // Check if it's a Blackbox API internal error
+                if (response.status === 500 && errorText.includes('Replicate')) {
+                    userMessage = 'The Blackbox AI video generation service is currently experiencing issues. This is a temporary problem on their end. Please try again in a few minutes, or contact Blackbox AI support if the issue persists.';
+                }
+                
                 return {
                     statusCode: response.status,
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ 
-                        error: `API request failed: ${response.statusText}`,
+                        error: userMessage,
                         details: errorText,
-                        status: response.status
+                        status: response.status,
+                        note: 'This is an issue with the Blackbox AI service, not your website.'
                     })
                 };
             }

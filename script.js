@@ -178,6 +178,7 @@ async function generateVideo() {
     const btnLoader = generateBtn.querySelector('.btn-loader');
     btnText.style.display = 'none';
     btnLoader.style.display = 'flex';
+    btnLoader.querySelector('span:last-child').textContent = 'Generating video... This may take 30-60 seconds...';
     generateBtn.disabled = true;
     
     try {
