@@ -1,7 +1,6 @@
 // State management
 let uploadedPhotos = [];
 let currentPrompt = '';
-let pollingInterval = null;
 
 // DOM Elements
 const uploadArea = document.getElementById('uploadArea');
@@ -28,27 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners Setup
 function setupEventListeners() {
-    // Upload area click
     uploadArea.addEventListener('click', () => fileInput.click());
-    
-    // File input change
     fileInput.addEventListener('change', handleFileSelect);
-    
-    // Drag and drop
     uploadArea.addEventListener('dragover', handleDragOver);
     uploadArea.addEventListener('dragleave', handleDragLeave);
     uploadArea.addEventListener('drop', handleDrop);
-    
-    // Clear photos
     clearPhotosBtn.addEventListener('click', clearAllPhotos);
-    
-    // Prompt input
     promptInput.addEventListener('input', handlePromptInput);
-    
-    // Generate button
     generateBtn.addEventListener('click', generateVideo);
-    
-    // Error close
     errorClose.addEventListener('click', hideError);
 }
 
@@ -167,7 +153,7 @@ function updateGenerateButton() {
     }
 }
 
-// Video generation with async/polling
+// Video generation
 async function generateVideo() {
     if (uploadedPhotos.length === 0 || !currentPrompt.trim()) {
         showError('Please upload photos and provide a prompt');
@@ -179,18 +165,17 @@ async function generateVideo() {
     const btnLoader = generateBtn.querySelector('.btn-loader');
     btnText.style.display = 'none';
     btnLoader.style.display = 'flex';
-    btnLoader.querySelector('span:last-child').textContent = 'Starting video generation...';
     generateBtn.disabled = true;
     
     try {
-        // Convert photos to base64
+        // Prepare photos data
         const photosData = uploadedPhotos.map(photo => ({
             name: photo.name,
             data: photo.dataUrl
         }));
         
-        // Start video generation
-        const response = await fetch('/.netlify/functions/start-video', {
+        // Call Vercel API function
+        const response = await fetch('/api/generate-video', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -203,112 +188,26 @@ async function generateVideo() {
         
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to start video generation');
+            throw new Error(errorData.error || 'Failed to generate video');
         }
         
         const result = await response.json();
-        const jobId = result.jobId;
-        
-        console.log('Video generation started, job ID:', jobId);
-        
-        // Update loading message with timestamp
-        const startTime = Date.now();
-        btnLoader.querySelector('span:last-child').textContent = 'Generating video... This may take 1-3 minutes...';
-        
-        // Start polling for status
-        pollVideoStatus(jobId, startTime);
+        displayResult(result);
         
     } catch (error) {
-        console.error('Error starting video generation:', error);
-        showError(error.message || 'Failed to start video generation. Please try again.');
-        
+        console.error('Error generating video:', error);
+        showError(error.message || 'Failed to generate video. Please try again.');
+    } finally {
         // Reset button state
-        const btnText = generateBtn.querySelector('.btn-text');
-        const btnLoader = generateBtn.querySelector('.btn-loader');
         btnText.style.display = 'inline';
         btnLoader.style.display = 'none';
         generateBtn.disabled = false;
     }
 }
 
-// Poll for video status
-function pollVideoStatus(jobId, startTime) {
-    let attempts = 0;
-    const maxAttempts = 120; // Poll for up to 4 minutes (120 * 2 seconds)
-    
-    const btnLoader = generateBtn.querySelector('.btn-loader');
-    
-    pollingInterval = setInterval(async () => {
-        attempts++;
-        
-        try {
-            const response = await fetch(`/.netlify/functions/check-video-status?jobId=${jobId}`);
-            
-            if (!response.ok) {
-                throw new Error('Failed to check video status');
-            }
-            
-            const status = await response.json();
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            console.log(`Job status: ${status.status} (${elapsed}s elapsed)`);
-            
-            // Update loading message with elapsed time
-            if (status.status === 'processing') {
-                btnLoader.querySelector('span:last-child').textContent = 
-                    `Generating video... ${elapsed}s elapsed (typically takes 1-3 minutes)`;
-            }
-            
-            if (status.status === 'completed') {
-                // Video is ready!
-                clearInterval(pollingInterval);
-                displayResult(status);
-                
-                // Reset button state
-                const btnText = generateBtn.querySelector('.btn-text');
-                const btnLoader = generateBtn.querySelector('.btn-loader');
-                btnText.style.display = 'inline';
-                btnLoader.style.display = 'none';
-                generateBtn.disabled = false;
-                
-            } else if (status.status === 'failed') {
-                // Generation failed
-                clearInterval(pollingInterval);
-                showError(status.error || 'Video generation failed');
-                
-                // Reset button state
-                const btnText = generateBtn.querySelector('.btn-text');
-                const btnLoader = generateBtn.querySelector('.btn-loader');
-                btnText.style.display = 'inline';
-                btnLoader.style.display = 'none';
-                generateBtn.disabled = false;
-                
-            } else if (attempts >= maxAttempts) {
-                // Timeout after 4 minutes
-                clearInterval(pollingInterval);
-                const elapsed = Math.floor((Date.now() - startTime) / 1000);
-                showError(`Video generation timed out after ${elapsed} seconds. The Blackbox API may be slow or overloaded. Please try again.`);
-                
-                // Reset button state
-                const btnText = generateBtn.querySelector('.btn-text');
-                const btnLoader = generateBtn.querySelector('.btn-loader');
-                btnText.style.display = 'inline';
-                btnLoader.style.display = 'none';
-                generateBtn.disabled = false;
-            }
-            // Otherwise, keep polling (status is 'processing')
-            
-        } catch (error) {
-            console.error('Error polling status:', error);
-            // Don't stop polling on error, might be temporary
-        }
-    }, 2000); // Poll every 2 seconds
-}
-
 // Display result
 function displayResult(result) {
     resultSection.style.display = 'block';
-    
-    // Scroll to result
     resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     
     let resultHTML = '<div class="result-info">';
@@ -329,16 +228,15 @@ function displayResult(result) {
         resultHTML += `<p style="color: var(--text-primary); margin-bottom: 1rem;">${result.message}</p>`;
     }
     
-    // Show job info
+    // Show full response for debugging
     resultHTML += `
         <details style="margin-top: 1rem;">
-            <summary style="cursor: pointer; color: var(--text-secondary); margin-bottom: 0.5rem;">View Job Details</summary>
+            <summary style="cursor: pointer; color: var(--text-secondary); margin-bottom: 0.5rem;">View API Response</summary>
             <pre>${JSON.stringify(result, null, 2)}</pre>
         </details>
     `;
     
     resultHTML += '</div>';
-    
     resultContainer.innerHTML = resultHTML;
 }
 
@@ -346,8 +244,6 @@ function displayResult(result) {
 function showError(message) {
     errorText.textContent = message;
     errorMessage.style.display = 'flex';
-    
-    // Auto-hide after 5 seconds
     setTimeout(hideError, 5000);
 }
 

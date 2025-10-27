@@ -1,11 +1,11 @@
 {
   "name": "ai-video-maker",
   "version": "1.0.0",
-  "description": "AI-powered video maker that creates videos from photos using Blackbox AI and Veo 3 model",
+  "description": "AI-powered video maker using Blackbox AI Veo 3 model",
   "main": "index.html",
   "scripts": {
-    "dev": "netlify dev",
-    "build": "echo 'No build step required for static site'"
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
   },
   "keywords": [
     "ai",
@@ -13,12 +13,8 @@
     "maker",
     "blackbox",
     "veo3",
-    "netlify"
+    "vercel"
   ],
   "author": "",
-  "license": "MIT",
-  "dependencies": {},
-  "devDependencies": {
-    "netlify-cli": "^17.0.0"
-  }
+  "license": "MIT"
 }

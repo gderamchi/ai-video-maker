@@ -1,5 +1,5 @@
 // Vercel serverless function for video generation
-// This has a 60-second timeout on free tier (vs Netlify's 26 seconds)
+// 60-second timeout on free tier (enough for most video generations)
 
 export default async function handler(req, res) {
     // Only allow POST requests
@@ -22,16 +22,17 @@ export default async function handler(req, res) {
         // Get API key from environment
         const apiKey = process.env.BLACKBOX_API;
         if (!apiKey) {
-            return res.status(500).json({ error: 'API key not configured' });
+            return res.status(500).json({ error: 'API key not configured. Add BLACKBOX_API environment variable in Vercel.' });
         }
 
-        console.log('Function started');
-        console.log('Photos count:', photos.length);
-        console.log('Prompt length:', prompt.length);
-        console.log('API key exists:', !!apiKey);
+        console.log('Starting video generation...');
+        console.log('Photos:', photos.length);
+        console.log('Prompt:', prompt);
 
-        // Call Blackbox API
-        console.log('Calling Blackbox API...');
+        // Prepare image URLs from base64 data
+        const imageUrls = photos.map(photo => photo.data);
+
+        // Call Blackbox API with Veo 3 model
         const response = await fetch('https://api.blackbox.ai/chat/completions', {
             method: 'POST',
             headers: {
@@ -39,11 +40,22 @@ export default async function handler(req, res) {
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: 'blackboxai/google/veo-2',
+                model: 'blackboxai/google/veo-3-fast',
                 messages: [
                     {
                         role: 'user',
-                        content: prompt
+                        content: [
+                            {
+                                type: 'text',
+                                text: prompt
+                            },
+                            ...imageUrls.map(url => ({
+                                type: 'image_url',
+                                image_url: {
+                                    url: url
+                                }
+                            }))
+                        ]
                     }
                 ]
             })
@@ -69,17 +81,12 @@ export default async function handler(req, res) {
 
         if (result.choices && result.choices[0] && result.choices[0].message) {
             message = result.choices[0].message.content;
-            console.log('Message content:', message);
             
-            // The content IS the video URL
+            // The content should be the video URL
             if (message && message.startsWith('http')) {
                 videoUrl = message;
-                console.log('Found video URL:', videoUrl);
+                console.log('Video URL found:', videoUrl);
             }
-        }
-        
-        if (!videoUrl) {
-            console.error('No video URL found in response');
         }
 
         return res.status(200).json({
@@ -92,7 +99,7 @@ export default async function handler(req, res) {
         });
 
     } catch (error) {
-        console.error('Error in generate-video function:', error);
+        console.error('Error:', error);
         return res.status(500).json({ 
             error: 'Internal server error',
             message: error.message 
