@@ -18,4 +18,16 @@
 [functions."generate-video"]
   # Maximum timeout for Netlify functions (26 seconds)
   # Video generation takes time, this is the max allowed
-  timeout = 180
+  timeout = 26
+
+[functions."generate-video-webhook"]
+  # Webhook function needs maximum timeout to wait for Blackbox API
+  timeout = 26
+
+[functions."start-video"]
+  # Quick function, just creates job and triggers webhook
+  timeout = 10
+
+[functions."check-video-status"]
+  # Quick function, just checks job status
+  timeout = 10
