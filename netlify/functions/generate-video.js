@@ -86,7 +86,7 @@ exports.handler = async (event, context) => {
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: 'blackboxai/google/veo-2',
+                    model: 'blackboxai/google/veo-3-fast',
                     messages: [
                         {
                             role: 'user',

@@ -116,27 +116,39 @@ The Blackbox API is configured to use:
 
 ```
 ai-video-maker-1/
-├── index.html                      # Main HTML file
-├── styles.css                      # Styling
-├── script.js                       # Frontend JavaScript
-├── package.json                    # Node.js dependencies
-├── netlify.toml                    # Netlify configuration
-├── README.md                       # Documentation
+├── index.html                          # Main HTML file
+├── styles.css                          # Styling
+├── script.js                           # Frontend with async/polling
+├── package.json                        # Node.js dependencies
+├── netlify.toml                        # Netlify configuration
+├── README.md                           # Documentation
+├── vercel.json                         # Vercel configuration (alternative)
+├── VERCEL-DEPLOYMENT.md               # Vercel deployment guide
 └── netlify/
     └── functions/
-        └── generate-video.js       # Serverless function for API calls
+        ├── start-video.js             # Start async video generation
+        ├── check-video-status.js      # Poll for job status
+        ├── job-storage.js             # In-memory job storage
+        └── generate-video.js          # Legacy sync function (deprecated)
 ```
 
-## 🎯 How It Works
+## 🎯 How It Works (Async/Polling Architecture)
 
 1. **Upload Photos**: Users upload one or more photos through the drag-and-drop interface
 2. **Write Prompt**: Users describe the desired video in the text area
-3. **Generate**: Click "Generate Video" to send the request
-4. **Processing**: 
-   - Frontend sends photos (as base64) and prompt to Netlify function
-   - Netlify function calls Blackbox API with Veo 3 model
-   - API processes the request and generates video
-5. **Display**: Generated video is displayed with download option
+3. **Generate**: Click "Generate Video" to start the process
+4. **Async Processing**: 
+   - Frontend calls `/start-video` function which returns immediately with a job ID
+   - Backend starts video generation asynchronously (no timeout issues!)
+   - Blackbox API generates video using Veo 3 Fast model (30-60 seconds)
+5. **Polling**: Frontend polls `/check-video-status` every 2 seconds to check job status
+6. **Display**: When complete, video is displayed with download option
+
+**Why Async/Polling?**
+- Netlify free tier has 26-second timeout limit
+- Video generation takes 30-60 seconds
+- Async approach bypasses timeout by returning immediately
+- Polling checks status until video is ready
 
 ## 🛠️ Technologies Used
 
@@ -178,19 +190,21 @@ ai-video-maker-1/
 - Verify the API key starts with `sk-`
 - Verify the API key is valid and has proper permissions
 
-### Function Timeout / 500 Errors
-**Important**: Netlify free tier has a **26-second maximum timeout** for serverless functions. Video generation with Blackbox API typically takes 30-60 seconds, which exceeds this limit.
+### Async/Polling Implementation
 
-**Solutions:**
-1. **Upgrade to Netlify Pro** ($19/month) - Allows up to 26 seconds timeout (still may not be enough)
-2. **Use a different deployment platform**:
-   - Vercel (60-second timeout on free tier)
-   - Railway (no timeout limits)
-   - AWS Lambda (15-minute timeout)
-3. **Try veo-2 model** (may be faster than veo-3-fast)
-4. **Implement async/polling** (complex, requires database)
+**✅ SOLVED**: This project now uses async/polling to bypass Netlify's 26-second timeout!
 
-**Current Status**: The code is correct, but Netlify's timeout limitation prevents it from working on the free tier.
+**How it works:**
+1. `/start-video` function starts generation and returns immediately (< 1 second)
+2. Video generation runs in background
+3. Frontend polls `/check-video-status` every 2 seconds
+4. When complete, video URL is returned
+
+**Note**: Job storage uses in-memory Map (jobs expire after 1 hour). For production, use:
+- Netlify Blobs
+- Redis
+- MongoDB
+- Any persistent storage
 
 ### Photo Upload Issues
 - Ensure photos are in supported formats (JPG, PNG, GIF)

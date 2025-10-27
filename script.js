@@ -1,6 +1,7 @@
 // State management
 let uploadedPhotos = [];
 let currentPrompt = '';
+let pollingInterval = null;
 
 // DOM Elements
 const uploadArea = document.getElementById('uploadArea');
@@ -166,7 +167,7 @@ function updateGenerateButton() {
     }
 }
 
-// Video generation
+// Video generation with async/polling
 async function generateVideo() {
     if (uploadedPhotos.length === 0 || !currentPrompt.trim()) {
         showError('Please upload photos and provide a prompt');
@@ -178,7 +179,7 @@ async function generateVideo() {
     const btnLoader = generateBtn.querySelector('.btn-loader');
     btnText.style.display = 'none';
     btnLoader.style.display = 'flex';
-    btnLoader.querySelector('span:last-child').textContent = 'Generating video... This may take 30-60 seconds...';
+    btnLoader.querySelector('span:last-child').textContent = 'Starting video generation...';
     generateBtn.disabled = true;
     
     try {
@@ -188,12 +189,8 @@ async function generateVideo() {
             data: photo.dataUrl
         }));
         
-        // Call serverless function (works for both Netlify and Vercel)
-        const functionUrl = window.location.hostname.includes('vercel') 
-            ? '/api/generate-video' 
-            : '/.netlify/functions/generate-video';
-        
-        const response = await fetch(functionUrl, {
+        // Start video generation
+        const response = await fetch('/.netlify/functions/start-video', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -206,21 +203,94 @@ async function generateVideo() {
         
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to generate video');
+            throw new Error(errorData.error || 'Failed to start video generation');
         }
         
         const result = await response.json();
-        displayResult(result);
+        const jobId = result.jobId;
+        
+        console.log('Video generation started, job ID:', jobId);
+        
+        // Update loading message
+        btnLoader.querySelector('span:last-child').textContent = 'Generating video... This may take 30-60 seconds...';
+        
+        // Start polling for status
+        pollVideoStatus(jobId);
         
     } catch (error) {
-        console.error('Error generating video:', error);
-        showError(error.message || 'Failed to generate video. Please try again.');
-    } finally {
+        console.error('Error starting video generation:', error);
+        showError(error.message || 'Failed to start video generation. Please try again.');
+        
         // Reset button state
+        const btnText = generateBtn.querySelector('.btn-text');
+        const btnLoader = generateBtn.querySelector('.btn-loader');
         btnText.style.display = 'inline';
         btnLoader.style.display = 'none';
         generateBtn.disabled = false;
     }
+}
+
+// Poll for video status
+function pollVideoStatus(jobId) {
+    let attempts = 0;
+    const maxAttempts = 60; // Poll for up to 2 minutes (60 * 2 seconds)
+    
+    pollingInterval = setInterval(async () => {
+        attempts++;
+        
+        try {
+            const response = await fetch(`/.netlify/functions/check-video-status?jobId=${jobId}`);
+            
+            if (!response.ok) {
+                throw new Error('Failed to check video status');
+            }
+            
+            const status = await response.json();
+            console.log('Job status:', status.status);
+            
+            if (status.status === 'completed') {
+                // Video is ready!
+                clearInterval(pollingInterval);
+                displayResult(status);
+                
+                // Reset button state
+                const btnText = generateBtn.querySelector('.btn-text');
+                const btnLoader = generateBtn.querySelector('.btn-loader');
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+                generateBtn.disabled = false;
+                
+            } else if (status.status === 'failed') {
+                // Generation failed
+                clearInterval(pollingInterval);
+                showError(status.error || 'Video generation failed');
+                
+                // Reset button state
+                const btnText = generateBtn.querySelector('.btn-text');
+                const btnLoader = generateBtn.querySelector('.btn-loader');
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+                generateBtn.disabled = false;
+                
+            } else if (attempts >= maxAttempts) {
+                // Timeout
+                clearInterval(pollingInterval);
+                showError('Video generation is taking longer than expected. Please try again.');
+                
+                // Reset button state
+                const btnText = generateBtn.querySelector('.btn-text');
+                const btnLoader = generateBtn.querySelector('.btn-loader');
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+                generateBtn.disabled = false;
+            }
+            // Otherwise, keep polling (status is 'processing')
+            
+        } catch (error) {
+            console.error('Error polling status:', error);
+            // Don't stop polling on error, might be temporary
+        }
+    }, 2000); // Poll every 2 seconds
 }
 
 // Display result
@@ -248,10 +318,10 @@ function displayResult(result) {
         resultHTML += `<p style="color: var(--text-primary); margin-bottom: 1rem;">${result.message}</p>`;
     }
     
-    // Show full response for debugging
+    // Show job info
     resultHTML += `
         <details style="margin-top: 1rem;">
-            <summary style="cursor: pointer; color: var(--text-secondary); margin-bottom: 0.5rem;">View API Response</summary>
+            <summary style="cursor: pointer; color: var(--text-secondary); margin-bottom: 0.5rem;">View Job Details</summary>
             <pre>${JSON.stringify(result, null, 2)}</pre>
         </details>
     `;
