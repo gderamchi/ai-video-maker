@@ -78,13 +78,22 @@ exports.handler = async (event, context) => {
             console.log('Calling Blackbox API...');
             console.log('API URL: https://api.blackbox.ai/chat/completions');
             
+            // Use the correct format from Blackbox documentation
             response = await fetch('https://api.blackbox.ai/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`
                 },
-                body: JSON.stringify(apiPayload)
+                body: JSON.stringify({
+                    model: 'blackboxai/google/veo-3-fast',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ]
+                })
             });
             
             console.log('API response status:', response.status);
@@ -137,46 +146,28 @@ exports.handler = async (event, context) => {
             };
         }
 
-        // Extract video URL or relevant data from the response
+        // Extract video URL from response
+        // According to Blackbox docs: response.choices[0].message.content contains the video URL
         console.log('Extracting video data from response...');
         console.log('Response structure:', JSON.stringify(result, null, 2));
         
         let videoUrl = null;
         let message = null;
 
-        // Try to extract video URL from various possible response structures
-        if (result.choices && result.choices[0]) {
-            const choice = result.choices[0];
-            console.log('Found choices[0]');
+        if (result.choices && result.choices[0] && result.choices[0].message) {
+            message = result.choices[0].message.content;
+            console.log('Message content:', message);
             
-            if (choice.message && choice.message.content) {
-                message = choice.message.content;
-                console.log('Message content:', message);
-                
-                const urlMatch = message.match(/https?:\/\/[^\s]+\.(mp4|mov|avi|webm)/i);
-                if (urlMatch) {
-                    videoUrl = urlMatch[0];
-                    console.log('Found video URL in content:', videoUrl);
-                }
+            // The content IS the video URL
+            if (message && message.startsWith('http')) {
+                videoUrl = message;
+                console.log('Found video URL:', videoUrl);
             }
-            
-            if (choice.video_url) {
-                videoUrl = choice.video_url;
-                console.log('Found video_url in choice:', videoUrl);
-            }
-        }
-
-        if (result.video_url) {
-            videoUrl = result.video_url;
-            console.log('Found video_url at top level:', videoUrl);
-        }
-
-        if (result.data && result.data.video_url) {
-            videoUrl = result.data.video_url;
-            console.log('Found video_url in data:', videoUrl);
         }
         
-        console.log('Final video URL:', videoUrl);
+        if (!videoUrl) {
+            console.error('No video URL found in response');
+        }
 
         console.log('Preparing success response...');
         const responseBody = {

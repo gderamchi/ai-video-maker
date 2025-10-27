@@ -16,6 +16,6 @@
   node_bundler = "esbuild"
   
 [functions."generate-video"]
-  # Increase timeout for video generation
-  # Video generation can take a while, so we set a longer timeout
+  # Maximum timeout for Netlify functions (26 seconds)
+  # Video generation takes time, this is the max allowed
   timeout = 180
