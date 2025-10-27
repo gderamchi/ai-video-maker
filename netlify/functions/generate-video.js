@@ -53,19 +53,22 @@ exports.handler = async (event, context) => {
 
         // Prepare the request to Blackbox API
         console.log('Preparing API payload...');
+        
+        // For video generation with Veo 3 Fast
         const apiPayload = {
-            model: 'blackboxai/google/veo-3',
+            model: 'blackboxai/google/veo-3-fast',
             messages: [
                 {
                     role: 'user',
-                    content: `Create a video based on the following prompt: ${prompt}\n\nI have ${photos.length} photo(s) to use as reference.`
+                    content: prompt
                 }
             ],
-            images: photos.map(photo => photo.data),
-            max_tokens: 4096,
-            temperature: 0.7
+            stream: false
         };
+        
         console.log('API payload prepared');
+        console.log('Model: blackboxai/google/veo-3-fast');
+        console.log('Payload:', JSON.stringify(apiPayload, null, 2));
 
         // Call Blackbox API
         let response;
