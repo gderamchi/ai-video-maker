@@ -50,7 +50,7 @@ exports.handler = async (event, context) => {
         });
 
         // Start async video generation (don't await)
-        generateVideoAsync(jobId, prompt, apiKey).catch(error => {
+        generateVideoAsync(jobId, prompt, photos, apiKey).catch(error => {
             console.error('Error in async video generation:', error);
         });
 
@@ -82,11 +82,16 @@ exports.handler = async (event, context) => {
 };
 
 // Async function that runs in background
-async function generateVideoAsync(jobId, prompt, apiKey) {
+async function generateVideoAsync(jobId, prompt, photos, apiKey) {
     const { updateJob } = require('./job-storage');
     
     try {
         console.log(`[${jobId}] Calling Blackbox API...`);
+        console.log(`[${jobId}] Photos count:`, photos.length);
+        
+        // Build the content with images
+        // Format: text prompt + image data
+        const imageUrls = photos.map(photo => photo.data);
         
         const response = await fetch('https://api.blackbox.ai/chat/completions', {
             method: 'POST',
@@ -99,7 +104,18 @@ async function generateVideoAsync(jobId, prompt, apiKey) {
                 messages: [
                     {
                         role: 'user',
-                        content: prompt
+                        content: [
+                            {
+                                type: 'text',
+                                text: prompt
+                            },
+                            ...imageUrls.map(url => ({
+                                type: 'image_url',
+                                image_url: {
+                                    url: url
+                                }
+                            }))
+                        ]
                     }
                 ]
             })

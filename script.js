@@ -211,11 +211,12 @@ async function generateVideo() {
         
         console.log('Video generation started, job ID:', jobId);
         
-        // Update loading message
-        btnLoader.querySelector('span:last-child').textContent = 'Generating video... This may take 30-60 seconds...';
+        // Update loading message with timestamp
+        const startTime = Date.now();
+        btnLoader.querySelector('span:last-child').textContent = 'Generating video... This may take 1-3 minutes...';
         
         // Start polling for status
-        pollVideoStatus(jobId);
+        pollVideoStatus(jobId, startTime);
         
     } catch (error) {
         console.error('Error starting video generation:', error);
@@ -231,9 +232,11 @@ async function generateVideo() {
 }
 
 // Poll for video status
-function pollVideoStatus(jobId) {
+function pollVideoStatus(jobId, startTime) {
     let attempts = 0;
-    const maxAttempts = 60; // Poll for up to 2 minutes (60 * 2 seconds)
+    const maxAttempts = 120; // Poll for up to 4 minutes (120 * 2 seconds)
+    
+    const btnLoader = generateBtn.querySelector('.btn-loader');
     
     pollingInterval = setInterval(async () => {
         attempts++;
@@ -246,7 +249,14 @@ function pollVideoStatus(jobId) {
             }
             
             const status = await response.json();
-            console.log('Job status:', status.status);
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            console.log(`Job status: ${status.status} (${elapsed}s elapsed)`);
+            
+            // Update loading message with elapsed time
+            if (status.status === 'processing') {
+                btnLoader.querySelector('span:last-child').textContent = 
+                    `Generating video... ${elapsed}s elapsed (typically takes 1-3 minutes)`;
+            }
             
             if (status.status === 'completed') {
                 // Video is ready!
@@ -273,9 +283,10 @@ function pollVideoStatus(jobId) {
                 generateBtn.disabled = false;
                 
             } else if (attempts >= maxAttempts) {
-                // Timeout
+                // Timeout after 4 minutes
                 clearInterval(pollingInterval);
-                showError('Video generation is taking longer than expected. Please try again.');
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                showError(`Video generation timed out after ${elapsed} seconds. The Blackbox API may be slow or overloaded. Please try again.`);
                 
                 // Reset button state
                 const btnText = generateBtn.querySelector('.btn-text');
